@@ -1,0 +1,137 @@
+import telebot
+import requests
+from bs4 import BeautifulSoup
+import ssl
+import json
+import traceback
+
+# Initialize the bot with your token
+bot_token = "7978:AAEYFx_UyG8NPed9fnoBs0Y-ObO9UoU"  # Replace this with your actual bot token
+bot = telebot.TeleBot(bot_token)
+
+# Function to analyze the website using advanced technologies
+def analyze_website(url):
+    try:
+        # Fetch the website's HTML content
+        response = requests.get(url, timeout=10)
+        status_code = response.status_code
+
+        # Check for Cloudflare
+        is_cloudflare = "cloudflare" in response.headers.get("server", "").lower()
+
+        # Parse the HTML content
+        soup = BeautifulSoup(response.content, "html.parser")
+        title = soup.title.string if soup.title else "No Title Available"
+
+        # Payment Gateway Detection
+        payment_gateway = detect_payment_gateways(response.text)
+
+        # SSL/TLS Certificate Info
+        ssl_info = get_ssl_info(url)
+
+        # Simulated detections
+        captcha = "No CAPTCHA 🔥" if "captcha" not in response.text.lower() else "CAPTCHA Detected"
+        graphql = "True 🔥" if "/graphql" in response.text.lower() else "False 🔥"
+        platform = "Medium" if "medium.com" in url else "Unknown"
+        error_logs = "None" if "error" not in response.text.lower() else "Error Logs Found"
+        payment_type = "2D Payment 🔥"
+
+        # Advanced Web Analysis (Wappalyzer-like integration)
+        tech_details = identify_technologies(url)
+
+        # Formatting the output
+        result = f"""┏━━━━━━━⍟
+┃ 𝗟𝗼𝗼𝗸𝘂𝗽 𝗥𝗲𝘀𝘂𝗹𝘁 : ✅
+┗━━━━━━━━━━━━⊛
+▰▰▰▰▰▰▰▰▰▰▰▰▰
+
+➥ 𝗦𝗶𝘁𝗲 -» {url}
+➥ 𝗣𝗮𝘆𝗺𝗲𝗻𝘁 𝗚𝗮𝘁𝗲𝘄𝗮𝘆𝘀 -» {payment_gateway}
+➥ 𝗖𝗮𝗽𝘁𝗰𝗵𝗮 -» {captcha}
+➥ 𝗖𝗹𝗼𝘂𝗱𝗳𝗹𝗮𝗿𝗲 -» {"True 🔥" if is_cloudflare else "False 🔥"}
+➥ 𝗚𝗿𝗮𝗽𝗵𝗾𝗹 -» {graphql}
+➥ 𝗣𝗹𝗮𝘁𝗳𝗼𝗿𝗺 -» {platform}
+➥ 𝗘𝗿𝗿𝗼𝗿 𝗹𝗼𝗴𝘀 -» {error_logs}
+➥ 𝗣𝗮𝘆𝗺𝗲𝗻𝘁 𝗧𝘆𝗽𝗲 -» {payment_type}
+➥ 𝗦𝗧𝗔𝗧𝗨𝗦 -» {status_code}
+
+➥ 𝗦𝗦𝗟/𝗧𝗟𝗦 𝗖𝗲𝗿𝘁𝗶𝗳𝗶𝗰𝗮𝘁𝗲 -» {ssl_info}
+➥ 𝗧𝗲𝗰𝗵𝗻𝗼𝗹𝗼𝗴𝗶𝗲𝘀 𝗙𝗼𝘂𝗻𝗱 -» {tech_details}
+
+▰▰▰▰▰▰▰▰▰▰▰▰▰"""
+        return result
+
+    except requests.exceptions.RequestException as e:
+        return f"Error: Unable to fetch the URL. Reason: {str(e)}"
+    except Exception as e:
+        return f"An error occurred: {str(e)}"
+
+# Payment gateway detection logic
+def detect_payment_gateways(page_content):
+    payment_gateways = [
+        "PayPal", "Stripe", "Square", "Razorpay", "Authorize.Net", "Braintree",
+        "Eway", "EPS", "PIX", "Streamline", "iDEAL"
+    ]
+    found_gateways = []
+
+    # Look for payment-related scripts, form actions, or API URLs
+    for gateway in payment_gateways:
+        if gateway.lower() in page_content.lower():
+            found_gateways.append(gateway)
+
+    if found_gateways:
+        return ", ".join(found_gateways)
+    else:
+        return "No Payment Gateway Detected"
+
+# Function to get SSL/TLS certificate information
+def get_ssl_info(url):
+    try:
+        hostname = url.replace("https://", "").replace("http://", "")
+        ssl_cert = ssl.get_server_certificate((hostname, 443))
+        return ssl_cert
+    except Exception as e:
+        return f"SSL/TLS Error: {str(e)}"
+
+# Function to identify technologies used on the website (Wappalyzer-like)
+def identify_technologies(url):
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+        }
+        response = requests.get(f"https://api.wappalyzer.com/v2/lookup/?urls={url}", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            tech_details = data[0]["technologies"] if "technologies" in data[0] else "No technologies detected"
+            return tech_details
+        else:
+            return "Error fetching technology data"
+    except Exception as e:
+        return f"Error identifying technologies: {str(e)}"
+
+# Handler for the /gate command
+@bot.message_handler(commands=["gate"])
+def handle_gate_command(message):
+    try:
+        # Parse the user's command
+        command_parts = message.text.split()
+        if len(command_parts) != 2:
+            bot.reply_to(message, "Usage: /gate <website_url>")
+            return
+
+        url = command_parts[1]
+        if not url.startswith("http://") and not url.startswith("https://"):
+            bot.reply_to(message, "Please provide a valid URL (starting with http:// or https://).")
+            return
+
+        # Analyze the website and send results
+        bot.reply_to(message, "Analyzing the website, please wait...")
+        result = analyze_website(url)
+        bot.reply_to(message, result)
+
+    except Exception as e:
+        bot.reply_to(message, f"An unexpected error occurred: {str(e)}")
+
+# Start the bot
+print("Bot is running...")
+bot.infinity_polling()
